@@ -26,6 +26,32 @@ Please reach out directly to discuss your requirements and commercial licensing 
 
 ---
 
+Performance & Resource Usage (Estimates - Base Model)
+⚠️ Important: These figures are estimates for the DecisionDot module itself, based on analysis of the base C code. Actual usage depends heavily on the target MCU (e.g., ARM Cortex-M0/M4/M7, ESP32 Xtensa LX6/LX7), compiler (GCC, Clang, IAR), and optimization level (-O1, -O2, -Os, etc.). Measure on your target hardware for accurate results.
+Static RAM (Data/BSS):
+Very low. The primary consumer is the static DecisionDot_InternalState_t struct.
+currentState (enum, likely 1-4 bytes)
+statusFlags (enum, likely 1-4 bytes)
+emaFilteredValueQ15 (int32_t, 4 bytes)
+lastFilteredValue (int16_t, 2 bytes)
+Estimate: < 20 Bytes (Compiler padding/alignment may slightly increase this).
+Stack Usage:
+Minimal for DecisionDot functions themselves.
+DecisionDot_ProcessSensorInput calls ema_update and update_fsm_state. These functions use local variables (int16_t, int32_t, potentially int64_t for intermediate math if compiler doesn't optimize well).
+Estimate: Peak stack usage within DecisionDot_ProcessSensorInput is likely < 64 Bytes, possibly less depending on compiler optimizations for the 64-bit multiplication in ema_update. Total application stack usage depends on the call depth from main or RTOS tasks.
+Flash (Code Size):
+The compiled code size for the functions (DecisionDot_Init, _ProcessSensorInput, _GetState, etc.) and helper functions (ema_update, update_fsm_state).
+Contains fixed-point arithmetic (shifts, adds, multiplies), comparisons, and switch statement logic.
+Estimate: Likely < 1 KiloByte when compiled with reasonable size optimizations (-Os). This depends heavily on whether 64-bit integer math support functions are linked in.
+Execution Time (DecisionDot_ProcessSensorInput):
+Dominated by the ema_update fixed-point calculations (especially the 64-bit intermediates if not optimized) and the update_fsm_state comparisons.
+Estimate (Target Dependent):
+On fast MCUs (e.g., >100MHz Cortex-M4/M7, ESP32): Expected to be << 1 millisecond (likely in the tens or low hundreds of microseconds).
+On slower MCUs (e.g., <50MHz Cortex-M0/M0+): Still expected to be very fast, likely < 2 milliseconds.
+CPU Load: If called periodically (e.g., once per second), the CPU load from this module will be negligible (< 0.1%).
+Conclusion: The DecisionDot base module itself is designed to meet typical stringent embedded constraints (< 128KB RAM, < 100ms execution time) with significant headroom. The primary resource considerations for the entire application will likely come from other components like communication stacks (WiFi, BLE), RTOS overhead, and more complex drivers or algorithms.
+
+
 ## Key Features (Base Model)
 
 *   **Finite State Machine (FSM):** Manages operational states (IDLE, ACTIVE, ALERT).
